@@ -1,6 +1,6 @@
 package com.ift2935;
 
-import com.ift2935.view.LoginView;
+import java.sql.Connection;
 
 import javafx.application.Application;
 import javafx.stage.Stage;
@@ -8,9 +8,17 @@ import javafx.stage.Stage;
 public class MainApp extends Application {
     @Override
     public void start(Stage stage) {
-        // Delegate to the actual login view
-        new LoginView().start(stage);
-        
+        System.out.println("App started");
+    
+        try (Connection conn = DBConnection.getConnection()) {
+            System.out.println("✅ Connection successful!");
+        } catch (Exception e) {
+            System.out.println("❌ Connection failed:");
+            e.printStackTrace();
+        }
+    
+        stage.setTitle("DB Test");
+        stage.show();
     }
 
     public static void main(String[] args) {
