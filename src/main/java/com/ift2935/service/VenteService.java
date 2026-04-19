@@ -2,71 +2,100 @@ package com.ift2935.service;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.Date;
 
 import com.ift2935.DBConnection;
 import com.ift2935.dao.AnnonceDAO;
-import com.ift2935.dao.EstimationDAO;
 import com.ift2935.dao.OffreDAO;
 import com.ift2935.dao.VenteDAO;
-import com.ift2935.model.Annonce;
-import com.ift2935.model.Estimation;
 import com.ift2935.model.Offre;
 import com.ift2935.model.Vente;
 
 public class VenteService {
 
-    public static boolean soumettreProposition(int annonceId, int acheteurId, BigDecimal montant) throws SQLException {
-        Connection conn = null;
+    private final VenteDAO venteDAO = new VenteDAO();
+    private final OffreDAO offreDAO = new OffreDAO();
+    private final AnnonceDAO annonceDAO = new AnnonceDAO();
+
+    public Vente conclureVenteAutomatique(Offre offre, BigDecimal prixFinal) throws Exception {
+        Connection conn = DBConnection.getConnection();
         try {
-            conn = DBConnection.getConnection();
             conn.setAutoCommit(false);
 
-            AnnonceDAO annonceDAO = new AnnonceDAO();
-            Annonce annonce = annonceDAO.findById(conn, annonceId);
-            if (annonce == null || !"active".equals(annonce.getStatut_annonce())) {
-                conn.rollback();
-                return false;
-            }
+            // 1. Accept winning offer
+            offre.setStatut_offre("acceptee");
+            offreDAO.update(offre);
 
-            // Get product id from annonce
-            int produitId = annonce.getId_produit();
+            // 2. Reject other pending offers on the same annonce
+            rejectOtherOffers(conn, offre.getId_annonce(), offre.getId_offre());
 
-            EstimationDAO estimationDAO = new EstimationDAO();
-            Estimation estimation = estimationDAO.findLatestByProduit(produitId);
-            if (estimation == null || !"acceptee".equals(estimation.getDecision())) {
-                conn.rollback();
-                return false;
-            }
+            // 3. Close the announcement
+            annonceDAO.updateStatut(conn, offre.getId_annonce(), "vendue");
 
-            BigDecimal prixEstime = estimation.getPrix_estime();
-
-            Offre offre = new Offre(annonceId, acheteurId, produitId, montant, new Date(), "en_attente");
-        
-
-            OffreDAO offreDAO = new OffreDAO();
-            int offreId = offreDAO.insert(conn, offre);
-
-            boolean venteConclue = false;
-            if (montant.compareTo(prixEstime) >= 0) {
-                Vente vente = new Vente(offreId, annonceId, montant, new Date(), "automatique");
-
-                VenteDAO venteDAO = new VenteDAO();
-                venteDAO.insert(conn, vente);
-
-                annonceDAO.updateStatut(conn, annonceId, "vendue");
-                venteConclue = true;
-            }
+            // 4. Record the sale
+            Vente vente = new Vente(0, offre.getId_offre(), prixFinal, new Date(), "automatique");
+            int venteId = venteDAO.insert(conn, vente);
+            vente.setId_vente(venteId);
 
             conn.commit();
-            return venteConclue;
-
-        } catch (SQLException e) {
-            if (conn != null) conn.rollback();
+            return vente;
+        } catch (Exception e) {
+            conn.rollback();
             throw e;
         } finally {
-            if (conn != null) conn.close();
+            conn.setAutoCommit(true);
+            conn.close();
+        }
+    }
+
+    public Vente conclureVenteManuelle(Offre offre, BigDecimal prixFinal) throws Exception {
+        Connection conn = DBConnection.getConnection();
+        try {
+            conn.setAutoCommit(false);
+
+            // 1. Accept winning offer
+            offre.setStatut_offre("acceptee");
+            offreDAO.update(offre);
+
+            // 2. Reject other pending offers
+            rejectOtherOffers(conn, offre.getId_annonce(), offre.getId_offre());
+
+            // 3. Close the announcement
+            annonceDAO.updateStatut(conn, offre.getId_annonce(), "vendue");
+
+            // 4. Record the sale
+            Vente vente = new Vente(0, offre.getId_offre(), prixFinal, new Date(), "manuelle");
+            int venteId = venteDAO.insert(conn, vente);
+            vente.setId_vente(venteId);
+
+            conn.commit();
+            return vente;
+        } catch (Exception e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(true);
+            conn.close();
+        }
+    }
+
+    public Vente getVenteByAnnonce(int idAnnonce) throws Exception {
+        // Find the accepted offer for this annonce
+        for (Offre o : offreDAO.findByAnnonce(idAnnonce)) {
+            if ("acceptee".equals(o.getStatut_offre())) {
+                return venteDAO.findByOffreId(o.getId_offre());
+            }
+        }
+        return null;
+    }
+
+
+    private void rejectOtherOffers(Connection conn, int idAnnonce, int winnerOffreId) throws Exception {
+        for (Offre o : offreDAO.findByAnnonce(idAnnonce)) {
+            if (o.getId_offre() != winnerOffreId && "en_attente".equals(o.getStatut_offre())) {
+                o.setStatut_offre("refusee");
+                offreDAO.update(o);
+            }
         }
     }
 }
