@@ -10,19 +10,19 @@ public class Estimation {
     private BigDecimal prix_estime;
     private String commentaire;
     private Date date_estimation;
-    private String decision;      // 'en_attente', 'acceptee', 'refusee'
+    private String decision_annonceur;      // 'en_attente', 'acceptee', 'refusee'
     private Date date_decision;
 
     // Full constructor (8 parameters) – used by DAO's map()
     public Estimation(int id_estimation, int id_produit, int id_expert, BigDecimal prix_estime,
-                      String commentaire, Date date_estimation, String decision, Date date_decision) {
+                      String commentaire, Date date_estimation, String decision_annonceur, Date date_decision) {
         this.id_estimation = id_estimation;
         this.id_produit = id_produit;
         this.id_expert = id_expert;
         this.prix_estime = prix_estime;
         this.commentaire = commentaire;
         this.date_estimation = date_estimation;
-        this.decision = decision;
+        this.decision_annonceur = decision_annonceur;
         this.date_decision = date_decision;
     }
 
@@ -50,8 +50,8 @@ public class Estimation {
     public Date getDate_estimation() { return date_estimation; }
     public void setDate_estimation(Date date_estimation) { this.date_estimation = date_estimation; }
 
-    public String getDecision() { return decision; }
-    public void setDecision(String decision) { this.decision = decision; }
+    public String getDecision_annonceur() { return decision_annonceur; }
+    public void setDecision_annonceur(String decision_annonceur) { this.decision_annonceur = decision_annonceur; }
 
     public Date getDateDecision() { return date_decision; }
     public void setDateDecision(Date date_decision) { this.date_decision = date_decision; }
