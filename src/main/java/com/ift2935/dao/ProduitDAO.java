@@ -79,6 +79,7 @@ public class ProduitDAO {
     }
     
 
+
     public void update(Produit produit) throws SQLException {
         String sql = "UPDATE Produit SET id_annonceur=?, id_categorie=?, titre=?, description=?, marque=?, modele=?, etat_produit=?, prix_souhaite=?, date_soumission=? " +
                      "WHERE id_produit=?";
