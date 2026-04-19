@@ -15,7 +15,8 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.util.ArrayList;
+import java.util.List;
 
 public class AnnonceurView {
     private final Stage stage;
@@ -35,35 +36,38 @@ public class AnnonceurView {
         tabs.getTabs().add(new Tab("1. Publier Produit", createPublishTab()));
         tabs.getTabs().add(new Tab("2. Décisions Expertise", createDecisionTab()));
         
-        stage.setTitle("Espace Annonceur - " + user.getNom());
         stage.setScene(new Scene(tabs, 850, 650));
+        stage.setTitle("Espace Annonceur - " + user.getNom());
         stage.show();
     }
 
     private VBox createPublishTab() {
         VBox root = new VBox(20); root.setPadding(new Insets(30));
         GridPane grid = new GridPane(); grid.setHgap(10); grid.setVgap(15);
+        TextField tit = new TextField(); TextField prx = new TextField();
+        grid.add(new Label("Titre :"), 0, 0); grid.add(tit, 1, 0);
+        grid.add(new Label("Prix souhaité (€) :"), 0, 1); grid.add(prx, 1, 1);
 
-        TextField txtTitre = new TextField();
-        TextField txtPrix = new TextField();
-        grid.add(new Label("Titre :"), 0, 0); grid.add(txtTitre, 1, 0);
-        grid.add(new Label("Prix souhaité (€) :"), 0, 1); grid.add(txtPrix, 1, 1);
-
-        Button btn = new Button("Soumettre pour expertise");
+        Button btn = new Button("Soumettre le produit");
         btn.setOnAction(e -> {
             try {
-                BigDecimal pS = new BigDecimal(txtPrix.getText());
-                // 1. Soumettre le produit
-                Produit p = pService.soumettreProduit(user.getId(), 1, txtTitre.getText(), "Desc", "Marque", "Modele", "Bon", pS);
-                
-                // 2. SIMULATION EXPERT (Immédiat selon PDF)
+                BigDecimal pS = new BigDecimal(prx.getText());
+                // Afficher les infos de base avant expertise
+                Alert summary = new Alert(Alert.AlertType.INFORMATION);
+                summary.setTitle("Résumé");
+                summary.setHeaderText("Soumission enregistrée");
+                summary.setContentText("Produit: " + tit.getText() + "\nSouhaité: " + pS + " €");
+                summary.showAndWait();
+
+                // Simulation Expert
                 TextInputDialog diag = new TextInputDialog("100.00");
-                diag.setHeaderText("SIMULATION EXPERT : L'expert analyse l'objet.");
-                diag.setContentText("Prix d'expertise (€) :");
+                diag.setHeaderText("Un expert analyse le produit actuellement:");
+                diag.setContentText("Prix estimé (€):");
                 diag.showAndWait().ifPresent(val -> {
                     try {
+                        Produit p = pService.soumettreProduit(user.getId(), 1, tit.getText(), "Standard", "Marque", "Model", "Bon", pS);
                         eService.createEstimation(p.getIdProduit(), 3, new BigDecimal(val), "Expertise simulée");
-                        new Alert(Alert.AlertType.INFORMATION, "Produit soumis. Allez dans l'onglet 2 pour décider.").show();
+                        new Alert(Alert.AlertType.INFORMATION, "Expertise reçue. Veuillez décider dans l'onglet 2.").show();
                         refresh();
                     } catch (Exception ex) { ex.printStackTrace(); }
                 });
@@ -78,21 +82,28 @@ public class AnnonceurView {
     private VBox createDecisionTab() {
         VBox root = new VBox(15); root.setPadding(new Insets(20));
         tableEstimations = new TableView<>();
-        TableColumn<Estimation, Integer> colP = new TableColumn<>("Produit ID");
-        colP.setCellValueFactory(new PropertyValueFactory<>("id_produit"));
-        TableColumn<Estimation, BigDecimal> colV = new TableColumn<>("Prix Expert (€)");
-        colV.setCellValueFactory(new PropertyValueFactory<>("prix_estime"));
-        tableEstimations.getColumns().addAll(colP, colV);
+        TableColumn<Estimation, Integer> col1 = new TableColumn<>("Produit ID");
+        col1.setCellValueFactory(new PropertyValueFactory<>("id_produit"));
+        TableColumn<Estimation, BigDecimal> col2 = new TableColumn<>("Prix Expert (€)");
+        col2.setCellValueFactory(new PropertyValueFactory<>("prix_estime"));
+        tableEstimations.getColumns().addAll(col1, col2);
 
-        Button btnAcc = new Button("ACCEPTER (Publier l'Annonce)");
+        // ✅ Point 3: Les trois choix (Accepter, Refuser, Attente)
+        Button btnAcc = new Button("ACCEPTER (Mettre en vente)");
         btnAcc.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white;");
+        btnAcc.setPrefWidth(Double.MAX_VALUE);
         btnAcc.setOnAction(e -> handleDecision("acceptee"));
 
-        Button btnRef = new Button("REFUSER");
+        Button btnRef = new Button("REFUSER (Supprimer)");
         btnRef.setStyle("-fx-background-color: #c0392b; -fx-text-fill: white;");
+        btnRef.setPrefWidth(Double.MAX_VALUE);
         btnRef.setOnAction(e -> handleDecision("refusee"));
 
-        root.getChildren().addAll(new Label("Estimations en attente :"), tableEstimations, btnAcc, btnRef);
+        Button btnWait = new Button("GARDER EN ATTENTE");
+        btnWait.setPrefWidth(Double.MAX_VALUE);
+        btnWait.setOnAction(e -> handleDecision("en_attente"));
+
+        root.getChildren().addAll(new Label("Estimations à traiter :"), tableEstimations, btnAcc, btnRef, btnWait);
         refresh();
         return root;
     }
@@ -101,13 +112,17 @@ public class AnnonceurView {
         Estimation sel = tableEstimations.getSelectionModel().getSelectedItem();
         if (sel == null) return;
         try {
-            eService.decisionAnnonceur(sel.getId_estimation(), dec);
-            if ("acceptee".equals(dec)) {
-                // Point 5: Publication auto si acceptée
-                aService.publierAnnonce(sel.getId_produit(), null); 
-                new Alert(Alert.AlertType.CONFIRMATION, "Annonce publiée avec succès !").show();
+            if ("en_attente".equals(dec)) {
+                new Alert(Alert.AlertType.INFORMATION, "Le produit reste en attente de décision.").show();
             } else {
-                new Alert(Alert.AlertType.INFORMATION, "Expertise refusée.").show();
+                // ✅ Contrainte: La date de décision est générée par le service (Timestamp actuel)
+                eService.decisionAnnonceur(sel.getId_estimation(), dec);
+                if ("acceptee".equals(dec)) {
+                    aService.publierAnnonce(sel.getId_produit(), null);
+                    new Alert(Alert.AlertType.CONFIRMATION, "Succès! Produit en Vente (ACTIVE)").show();
+                } else {
+                    new Alert(Alert.AlertType.WARNING, "Expertise refusée. Le produit ne sera pas publié.").show();
+                }
             }
             refresh();
         } catch (Exception ex) {
@@ -117,8 +132,16 @@ public class AnnonceurView {
 
     private void refresh() {
         try {
-            // Uniquement les estimations 'en_attente' pour cet annonceur
-            tableEstimations.setItems(FXCollections.observableArrayList(eService.getEstimationByProduit(99))); // Demo placeholder
-        } catch (Exception e) {}
+            // ✅ Correction: On récupère les produits puis on cherche leurs estimations
+            List<Produit> mesP = pService.getProduitsByAnnonceur(user.getId());
+            List<Estimation> aTraiter = new ArrayList<>();
+            for (Produit p : mesP) {
+                try {
+                    Estimation est = eService.getEstimationByProduit(p.getIdProduit());
+                    if ("en_attente".equals(est.getDecision_annonceur())) aTraiter.add(est);
+                } catch (Exception ignored) {}
+            }
+            tableEstimations.setItems(FXCollections.observableArrayList(aTraiter));
+        } catch (Exception e) { e.printStackTrace(); }
     }
 }

@@ -48,7 +48,7 @@ public class AnnonceDAO {
     }
 
     private void setInsertParameters(PreparedStatement stmt, Annonce annonce) throws SQLException {
-        stmt.setInt(1, annonce.getId_produit());  // ✅ fixed: use id_produit
+        stmt.setInt(1, annonce.getId_produit());  // fixed: use id_produit
         stmt.setTimestamp(2, new Timestamp(annonce.getDate_publication().getTime()));
         stmt.setTimestamp(3, annonce.getDate_expiration() != null ? new Timestamp(annonce.getDate_expiration().getTime()) : null);
         stmt.setString(4, annonce.getStatut_annonce());
@@ -78,6 +78,17 @@ public class AnnonceDAO {
     public List<Annonce> getActiveAnnonces() throws SQLException {
         List<Annonce> list = new ArrayList<>();
         String sql = "SELECT id_annonce, id_produit, date_publication, date_expiration, statut_annonce FROM Annonce WHERE statut_annonce = 'active' AND (date_expiration IS NULL OR date_expiration > NOW())";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) list.add(map(rs));
+        }
+        return list;
+    }
+
+    public List<Annonce> findAll() throws SQLException {
+        List<Annonce> list = new ArrayList<>();
+        String sql = "SELECT * FROM Annonce ORDER BY date_publication DESC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {

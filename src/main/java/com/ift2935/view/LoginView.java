@@ -2,7 +2,6 @@ package com.ift2935.view;
 
 import com.ift2935.dao.UtilisateurDAO;
 import com.ift2935.model.Utilisateur;
-
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -19,21 +18,21 @@ public class LoginView extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        primaryStage.setTitle("Connexion - Vente Conditionnelle");
+        primaryStage.setTitle("IFT2935 - Système de Vente");
 
         VBox root = new VBox(20);
         root.setPadding(new Insets(50));
         root.setAlignment(Pos.CENTER);
         root.setPrefWidth(450);
 
-        Label title = new Label("Authentification");
+        Label title = new Label("Login");
         title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
 
         TextField emailField = new TextField();
-        emailField.setPromptText("Saisissez votre courriel...");
+        emailField.setPromptText("Saisissez votre courriel (LMD)...");
         emailField.setPrefHeight(40);
 
-        Button loginBtn = new Button("Accéder au système");
+        Button loginBtn = new Button("Se connecter");
         loginBtn.setPrefHeight(40);
         loginBtn.setPrefWidth(Double.MAX_VALUE);
         loginBtn.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white;");
@@ -43,28 +42,34 @@ public class LoginView extends Application {
             if (email.isEmpty()) return;
 
             try {
-                // AppelL réel au DAO pour récupérer l'utilisateur par email
                 Utilisateur user = userDAO.findByEmail(email);
 
                 if (user != null) {
                     primaryStage.hide();
-                    // Routage selon le type_utilisateur du DDL
-                    switch (user.getType_utilisateur().toLowerCase()) {
-                        case "annonceur": new AnnonceurView(new Stage(), user).show(); break;
-                        case "acheteur": new AcheteurView(new Stage(), user).show(); break;
-                        case "expert": new expert(new Stage(), user).show(); break;
-                        default: new Alert(Alert.AlertType.ERROR, "Rôle inconnu.").show();
+                    // ✅ Correction : Nom exact de la méthode dans Utilisateur.java
+                    String role = user.getType_utilisateur(); 
+                    
+                    if ("annonceur".equalsIgnoreCase(role)) {
+                        new AnnonceurView(new Stage(), user).show();
+                    } else if ("acheteur".equalsIgnoreCase(role)) {
+                        new AcheteurView(new Stage(), user).show();
+                    } else if ("expert".equalsIgnoreCase(role)) {
+                        new expert(new Stage(), user).show();
                     }
                 } else {
-                    new Alert(Alert.AlertType.ERROR, "Courriel introuvable dans la base de données.").show();
+                    new Alert(Alert.AlertType.ERROR, "Email introuvable.").show();
                 }
             } catch (Exception ex) {
-                new Alert(Alert.AlertType.ERROR, "Erreur de connexion : " + ex.getMessage()).show();
+                new Alert(Alert.AlertType.ERROR, "Erreur DB : " + ex.getMessage()).show();
             }
         });
 
         root.getChildren().addAll(title, new Label("Identifiant unique (Email) :"), emailField, loginBtn);
         primaryStage.setScene(new Scene(root));
         primaryStage.show();
+    }
+
+    public static void main(String[] args) {
+        launch(args);
     }
 }

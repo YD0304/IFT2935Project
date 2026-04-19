@@ -1,5 +1,6 @@
 package com.ift2935.view;
 
+import com.ift2935.dao.AnnonceDAO;
 import com.ift2935.model.Annonce;
 import com.ift2935.model.Utilisateur;
 import com.ift2935.service.AnnonceService;
@@ -13,11 +14,12 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import java.math.BigDecimal;
+import java.util.List;
 
 public class AcheteurView {
     private final Stage stage;
     private final Utilisateur user;
-    private final AnnonceService aService = new AnnonceService();
+    private final AnnonceDAO adDAO = new AnnonceDAO();
     private final OffreService oService = new OffreService();
     private final VenteService vService = new VenteService();
     private TableView<Annonce> table;
@@ -29,54 +31,67 @@ public class AcheteurView {
 
     public void show() {
         VBox root = new VBox(20); root.setPadding(new Insets(30));
-        Label header = new Label("Espace Acheteur : Produits Disponibles");
-        header.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+        Label h = new Label("Espace Acheteur: Produits en Vente");
+        h.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
         table = new TableView<>();
-        TableColumn<Annonce, Integer> c1 = new TableColumn<>("Annonce ID");
-        c1.setCellValueFactory(new PropertyValueFactory<>("id_annonce"));
-        TableColumn<Annonce, String> c2 = new TableColumn<>("Statut");
-        c2.setCellValueFactory(new PropertyValueFactory<>("statut_annonce"));
-        table.getColumns().addAll(c1, c2);
+        TableColumn<Annonce, Integer> colAd = new TableColumn<>("ID Annonce");
+        colAd.setCellValueFactory(new PropertyValueFactory<>("id_annonce"));
+        
+        // ✅ Point 4: Affichage du statut (active, vendue, expiree, retiree)
+        TableColumn<Annonce, String> colSt = new TableColumn<>("Statut actuel");
+        colSt.setCellValueFactory(new PropertyValueFactory<>("statut_annonce"));
+        
+        table.getColumns().addAll(colAd, colSt);
+        table.setPrefHeight(400);
 
-        Button btnBid = new Button("Faire une offre (€)");
+        Button btnBid = new Button("Faire une offre de prix (€)");
         btnBid.setPrefWidth(Double.MAX_VALUE);
         btnBid.setOnAction(e -> {
             Annonce sel = table.getSelectionModel().getSelectedItem();
             if (sel == null) return;
+            
+            // Contrainte: Uniquement sur les annonces actives
+            if (!"active".equals(sel.getStatut_annonce())) {
+                new Alert(Alert.AlertType.ERROR, "Offres interdites sur un produit " + sel.getStatut_annonce()).show();
+                return;
+            }
 
             TextInputDialog d = new TextInputDialog("100.00");
-            d.setHeaderText("Objet #" + sel.getId_produit());
-            d.setContentText("Votre prix (€) :");
+            d.setHeaderText("Offre pour le produit #" + sel.getId_produit());
+            d.setContentText("Montant (€) :");
             d.showAndWait().ifPresent(val -> {
                 try {
                     BigDecimal amt = new BigDecimal(val);
-                    // Point 6: Appel de la logique de C (Vente automatique intégrée)
+                    // Logic automatique si montant >= expertise
                     oService.faireOffre(sel.getId_annonce(), user.getId(), amt);
                     
-                    // Vérifier si une vente a été créée
                     if (vService.getVenteByAnnonce(sel.getId_annonce()) != null) {
-                        new Alert(Alert.AlertType.CONFIRMATION, "VENTE AUTOMATIQUE ! Votre prix a été accepté.").show();
+                        new Alert(Alert.AlertType.CONFIRMATION, "Félicitations! VENTE AUTOMATIQUE CONCLUE!").show();
                     } else {
-                        new Alert(Alert.AlertType.INFORMATION, "Offre enregistrée (En attente).").show();
+                        new Alert(Alert.AlertType.INFORMATION, "Offre enregistrée. En attente de la décision du vendeur.").show();
                     }
                     refresh();
                 } catch (Exception ex) {
-                    new Alert(Alert.AlertType.ERROR, "Transaction impossible : " + ex.getMessage()).show();
+                    new Alert(Alert.AlertType.ERROR, "Erreur : " + ex.getMessage()).show();
                 }
             });
         });
 
-        root.getChildren().addAll(header, table, btnBid);
+        root.getChildren().addAll(h, new Label("Note : Vous voyez tout, mais ne pouvez acheter que les produits 'active'."), table, btnBid);
         refresh();
-        stage.setScene(new Scene(root, 650, 500));
+        stage.setScene(new Scene(root, 700, 600));
+        stage.setTitle("Catalogue - Acheteur");
         stage.show();
     }
 
     private void refresh() {
         try {
-            // Point 5: Seules les annonces 'active' sont affichées
-            table.setItems(FXCollections.observableArrayList(aService.getActiveAnnonces()));
-        } catch (Exception e) {}
+            // ✅ Charger TOUTES les annonces de la DB (findAll)
+            List<Annonce> allAds = adDAO.findAll();
+            table.setItems(FXCollections.observableArrayList(allAds));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
