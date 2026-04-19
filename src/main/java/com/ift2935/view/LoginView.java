@@ -2,11 +2,15 @@ package com.ift2935.view;
 
 import com.ift2935.dao.UtilisateurDAO;
 import com.ift2935.model.Utilisateur;
+
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -45,7 +49,7 @@ public class LoginView extends Application {
                 if (user != null) {
                     primaryStage.hide();
                     // Routage selon le type_utilisateur du DDL
-                    switch (user.gettype_utilisateur().toLowerCase()) {
+                    switch (user.getType_utilisateur().toLowerCase()) {
                         case "annonceur": new AnnonceurView(new Stage(), user).show(); break;
                         case "acheteur": new AcheteurView(new Stage(), user).show(); break;
                         case "expert": new expert(new Stage(), user).show(); break;

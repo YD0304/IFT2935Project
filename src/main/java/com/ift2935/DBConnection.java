@@ -6,7 +6,7 @@ import java.sql.SQLException;
 
 public class DBConnection {
     private static final String URL = "jdbc:postgresql://localhost:5432/vente_conditionnelle";
-    private static final String USER = "app_user";
+    private static final String USER = "youweidong";
     private static final String PASSWORD = "1234";
     
     public static Connection getConnection() throws SQLException {

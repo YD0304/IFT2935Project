@@ -67,7 +67,7 @@ public class UtilisateurDAO {
                 stmt.setString(4, user.getTelephone());
                 stmt.setString(5, user.getAdresse());
                 stmt.setDate(6, java.sql.Date.valueOf(user.getDateInscription()));
-                stmt.setString(7, user.gettype_utilisateur());
+                stmt.setString(7, user.getType_utilisateur());
                 ResultSet rs = stmt.executeQuery();
                 if (rs.next()) user.setId(rs.getInt(1));
             }
@@ -83,7 +83,7 @@ public class UtilisateurDAO {
                 stmt.setString(4, user.getTelephone());
                 stmt.setString(5, user.getAdresse());
                 stmt.setDate(6, java.sql.Date.valueOf(user.getDateInscription()));
-                stmt.setString(7, user.gettype_utilisateur());
+                stmt.setString(7, user.getType_utilisateur());
                 stmt.setInt(8, user.getId());
                 stmt.executeUpdate();
             }

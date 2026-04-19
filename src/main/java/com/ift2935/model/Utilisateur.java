@@ -34,7 +34,7 @@ public class Utilisateur {
     public String getTelephone() { return telephone; }
     public String getAdresse() { return adresse; }
     public LocalDate getDateInscription() { return date_inscription; }
-    public String gettype_utilisateur() { return type_utilisateur; }
+    public String getType_utilisateur() { return type_utilisateur; }
 
     public void setId(int id_user) { this.id_user = id_user; }
     public void setNom(String nom) { this.nom = nom; }
