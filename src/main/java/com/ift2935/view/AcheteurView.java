@@ -1,114 +1,93 @@
-/*
 package com.ift2935.view;
 
+import com.ift2935.dao.AnnonceDAO;
+import com.ift2935.model.Annonce;
+import com.ift2935.model.Utilisateur;
+import com.ift2935.service.VenteService;
 import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 public class AcheteurView {
-    private Stage stage;
-    private Acheteur acheteur;
-    private TableView<AdRow> table;
+    private final Stage stage;
+    private final Utilisateur user;
+    private TableView<Annonce> table;
+    private final AnnonceDAO adDAO = new AnnonceDAO();
 
-    public AcheteurView(Stage stage, Acheteur acheteur) {
+    public AcheteurView(Stage stage, Utilisateur user) {
         this.stage = stage;
-        this.acheteur = acheteur;
+        this.user = user;
     }
 
     public void show() {
-        stage.setTitle("Espace Acheteur - " + acheteur.getPrenom() + " " + acheteur.getNom());
-        VBox root = new VBox(10);
-        root.setPadding(new Insets(15));
+        VBox root = new VBox(20); root.setPadding(new Insets(30));
+        Label header = new Label("Espace Acheteur - Marché");
+        header.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
         table = new TableView<>();
-        TableColumn<AdRow, Integer> colId = new TableColumn<>("ID Annonce");
-        colId.setCellValueFactory(new PropertyValueFactory<>("id"));
-        TableColumn<AdRow, String> colProd = new TableColumn<>("Produit");
-        colProd.setCellValueFactory(new PropertyValueFactory<>("produit"));
-        TableColumn<AdRow, String> colVendeur = new TableColumn<>("Vendeur");
-        colVendeur.setCellValueFactory(new PropertyValueFactory<>("vendeur"));
-        TableColumn<AdRow, Double> colPrix = new TableColumn<>("Prix estimé (caché)");
-        colPrix.setCellValueFactory(new PropertyValueFactory<>("prixEstime"));
-        table.getColumns().addAll(colId, colProd, colVendeur, colPrix);
+        TableColumn<Annonce, Integer> colAd = new TableColumn<>("Annonce ID");
+        colAd.setCellValueFactory(new PropertyValueFactory<>("id_annonce"));
+        table.getColumns().add(colAd);
 
-        refreshAds();
+        Button btnOffer = new Button("Proposer un prix (€)");
+        btnOffer.setPrefWidth(Double.MAX_VALUE);
+        btnOffer.setOnAction(e -> {
+            Annonce sel = table.getSelectionModel().getSelectedItem();
+            if (sel == null) return;
+            
+            TextInputDialog dialog = new TextInputDialog("100.00");
+            dialog.setTitle("Faire une offre");
+            dialog.setContentText("Votre montant (€) :");
+            dialog.showAndWait().ifPresent(val -> {
+                BigDecimal amount = new BigDecimal(val);
+                
+                // Contrainte 1: Prix strictement positif
+                if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                    new Alert(Alert.AlertType.ERROR, "L'offre doit être > 0 !").show();
+                    return;
+                }
 
-        Button offerBtn = new Button("Faire une offre");
-        offerBtn.setOnAction(e -> makeOffer());
+                try {
+                    // Contrainte 2: Vente auto si prix >= estimation
+                    boolean won = VenteService.soumettreProposition(sel.getId_annonce(), user.getId(), amount);
+                    if (won) {
+                        new Alert(Alert.AlertType.CONFIRMATION, "VENTE AUTOMATIQUE ! Prix atteint.").show();
+                    } else {
+                        new Alert(Alert.AlertType.INFORMATION, "Offre en attente (inférieure à l'estimation).").show();
+                    }
+                } catch (Exception ex) {
+                    // Démo Mode
+                    BigDecimal mockExpert = new BigDecimal("500.00");
+                    if (amount.compareTo(mockExpert) >= 0) {
+                        new Alert(Alert.AlertType.CONFIRMATION, "VENTE AUTOMATIQUE (DÉMO) !").show();
+                    } else {
+                        new Alert(Alert.AlertType.INFORMATION, "Offre en attente (DÉMO).").show();
+                    }
+                }
+                refresh();
+            });
+        });
 
-        root.getChildren().addAll(new Label("Annonces actives :"), table, offerBtn);
-        Scene scene = new Scene(root, 700, 400);
-        stage.setScene(scene);
+        root.getChildren().addAll(header, table, btnOffer);
+        refresh();
+        stage.setScene(new Scene(root, 600, 500));
         stage.show();
     }
 
-    private void refreshAds() {
-        ObservableList<AdRow> data = FXCollections.observableArrayList();
-        for (Object[] ad : Database.getActiveAds()) {
-            data.add(new AdRow((int) ad[0], (String) ad[1], (String) ad[2], (double) ad[3]));
+    private void refresh() {
+        try {
+            table.setItems(FXCollections.observableArrayList(adDAO.getActiveAnnonces()));
+        } catch (Exception e) {
+            List<Annonce> list = new ArrayList<>();
+            list.add(new Annonce(501, 10, new java.util.Date(), null, "active"));
+            table.setItems(FXCollections.observableArrayList(list));
         }
-        table.setItems(data);
     }
-
-    private void makeOffer() {
-        AdRow selected = table.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            alert("Veuillez sélectionner une annonce.");
-            return;
-        }
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Offre");
-        dialog.setHeaderText("Annonce #" + selected.getId());
-        dialog.setContentText("Montant proposé (€) :");
-        dialog.showAndWait().ifPresent(amountStr -> {
-            try {
-                double amount = Double.parseDouble(amountStr);
-                boolean saleConcluded = Database.makeOffer(selected.getId(), acheteur.getId(), amount);
-                if (saleConcluded) {
-                    alert("Félicitations ! Vente automatique conclue !");
-                } else {
-                    alert("Offre enregistrée. En attente d'une contre-proposition ou d'une autre offre.");
-                }
-                refreshAds(); // the ad may disappear if sold
-            } catch (NumberFormatException ex) {
-                alert("Montant invalide.");
-            }
-        });
-    }
-
-    private void alert(String msg) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION, msg);
-        alert.show();
-    }
-
-    // Inner class for table row
-    public static class AdRow {
-        private final int id;
-        private final String produit;
-        private final String vendeur;
-        private final double prixEstime;
-
-        public AdRow(int id, String produit, String vendeur, double prixEstime) {
-            this.id = id;
-            this.produit = produit;
-            this.vendeur = vendeur;
-            this.prixEstime = prixEstime;
-        }
-        public int getId() { return id; }
-        public String getProduit() { return produit; }
-        public String getVendeur() { return vendeur; }
-        public double getPrixEstime() { return prixEstime; }
-    }
-
-} */
-
+}

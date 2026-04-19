@@ -1,71 +1,85 @@
 package com.ift2935.view;
 
-/*
+import com.ift2935.model.Utilisateur;
 import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.GridPane;
+import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import java.time.LocalDate;
 
 public class LoginView extends Application {
+
     @Override
     public void start(Stage primaryStage) {
-        primaryStage.setTitle("Connexion");
+        primaryStage.setTitle("Système de Vente Conditionnelle - Connexion");
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new javafx.geometry.Insets(20));
+        VBox root = new VBox(20);
+        root.setPadding(new Insets(50));
+        root.setAlignment(Pos.CENTER);
+        root.setPrefWidth(450);
+
+        Label title = new Label("Authentification");
+        title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
 
         TextField emailField = new TextField();
-        PasswordField passField = new PasswordField();
-        Button loginBtn = new Button("Se connecter");
+        emailField.setPromptText("Saisissez votre courriel...");
+        emailField.setPrefHeight(40);
 
-        grid.add(new Label("Email:"), 0, 0);
-        grid.add(emailField, 1, 0);
-        grid.add(new Label("Mot de passe:"), 0, 1);
-        grid.add(passField, 1, 1);
-        grid.add(loginBtn, 1, 2);
+        Button loginBtn = new Button("Se connecter");
+        loginBtn.setPrefHeight(40);
+        loginBtn.setPrefWidth(Double.MAX_VALUE);
+        loginBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;");
 
         loginBtn.setOnAction(e -> {
-            String email = emailField.getText();
-            String pwd = passField.getText();
-            Utilisateur user = Database.login(email, pwd);
-            if (user == null) {
-                showAlert(Alert.AlertType.ERROR, "Erreur", "Email ou mot de passe incorrect");
-                return;
-            }
-            primaryStage.hide();  // hide login window
-            if (user instanceof Acheteur) {
-               // Inside LoginView.start() or after successful login
-            Stage buyerStage = new Stage();
-            Acheteur acheteur = (Acheteur) user;  // after casting
-            AcheteurView view = new AcheteurView(buyerStage, acheteur);
-            view.show();
-            } else if (user instanceof Annonceur) {
-                // Stage sellerStage = new Stage();
-                // new AnnonceurView(sellerStage, (Annonceur) user).show();
-            } else if (user instanceof Expert) {
-                // similarly
+            String email = emailField.getText().trim();
+            if (email.isEmpty()) return;
+
+            Utilisateur user = performLogin(email);
+
+            if (user != null) {
+                primaryStage.hide();
+                System.out.println("Role détecté: " + user.getRole()); // Debug
+                
+                // Redirection selon le type_utilisateur (Annonceur, Acheteur, Expert)
+                if ("annonceur".equalsIgnoreCase(user.getRole())) {
+                    new AnnonceurView(new Stage(), user).show();
+                } else if ("acheteur".equalsIgnoreCase(user.getRole())) {
+                    new AcheteurView(new Stage(), user).show();
+                } else if ("expert".equalsIgnoreCase(user.getRole())) {
+                    new expert(new Stage(), user).show(); 
+                }
+            } else {
+                new Alert(Alert.AlertType.ERROR, "Compte inconnu. Utilisez un email du fichier LMD.sql.").show();
             }
         });
 
-        Scene scene = new Scene(grid, 400, 200);
-        primaryStage.setScene(scene);
+        root.getChildren().addAll(title, new Label("Veuillez saisir votre courriel :"), emailField, loginBtn);
+        primaryStage.setScene(new Scene(root));
         primaryStage.show();
     }
 
-    private void showAlert(Alert.AlertType type, String title, String msg) {
-        Alert alert = new Alert(type, msg);
-        alert.setTitle(title);
-        alert.show();
+    private Utilisateur performLogin(String email) {
+        // Reconnaissance des comptes du LMD.sql
+        if (email.contains("hformoy0")) {
+            return new Utilisateur(1, "Formoy", "Hermann", email, "514", "MTL", LocalDate.now(), "annonceur");
+        } else if (email.contains("kstephen3")) {
+            return new Utilisateur(4, "Stephen", "Konstantin", email, "514", "MTL", LocalDate.now(), "acheteur");
+        } else if (email.contains("pmacgillespie2")) {
+            return new Utilisateur(3, "MacGillespie", "Patrizius", email, "514", "MTL", LocalDate.now(), "expert");
+        }
+        
+        // Fallback pour tests
+        if (email.contains("expert")) return new Utilisateur(999, "Expert", "Demo", email, "0", "Add", LocalDate.now(), "expert");
+        if (email.contains("seller")) return new Utilisateur(888, "Vendeur", "Demo", email, "0", "Add", LocalDate.now(), "annonceur");
+        if (email.contains("buyer")) return new Utilisateur(777, "Acheteur", "Demo", email, "0", "Add", LocalDate.now(), "acheteur");
+        
+        return null;
     }
 
     public static void main(String[] args) {
         launch(args);
     }
-}*/
+}
